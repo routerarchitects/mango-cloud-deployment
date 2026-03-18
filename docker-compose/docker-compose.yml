@@ -9,7 +9,7 @@ networks:
 
 services:
   owgw:
-    image: "tip-tip-wlan-cloud-ucentral.jfrog.io/owgw:${OWGW_TAG}"
+    image: "ghcr.io/routerarchitects/ra-owgw:${OWGW_TAG}"
     networks:
       openwifi:
         aliases:
@@ -42,7 +42,7 @@ services:
       - net.ipv4.tcp_keepalive_time=45
 
   owgw-ui:
-    image: "tip-tip-wlan-cloud-ucentral.jfrog.io/owgw-ui:${OWGWUI_TAG}"
+    image: "ghcr.io/routerarchitects/ra-owgw-ui:${OWGWUI_TAG}"
     networks:
       openwifi:
     env_file:
@@ -60,11 +60,10 @@ services:
       - "./certs/restapi-cert.pem:/etc/nginx/restapi-cert.pem"
       - "./certs/restapi-key.pem:/etc/nginx/restapi-key.pem"
     ports:
-      - "80:80"
       - "443:443"
 
   owsec:
-    image: "tip-tip-wlan-cloud-ucentral.jfrog.io/owsec:${OWSEC_TAG}"
+    image: "ghcr.io/routerarchitects/ra-owsec:${OWSEC_TAG}"
     networks:
       openwifi:
         aliases:
@@ -86,7 +85,7 @@ services:
       - "16101:16101"
 
   owfms:
-    image: "tip-tip-wlan-cloud-ucentral.jfrog.io/owfms:${OWFMS_TAG}"
+    image: "ghcr.io/routerarchitects/ra-owfms:${OWFMS_TAG}"
     networks:
       openwifi:
         aliases:
@@ -108,7 +107,7 @@ services:
       - "16104:16104"
 
   owprov:
-    image: "tip-tip-wlan-cloud-ucentral.jfrog.io/owprov:${OWPROV_TAG}"
+    image: "ghcr.io/routerarchitects/ra-owprov:${OWPROV_TAG}"
     networks:
       openwifi:
         aliases:
@@ -130,7 +129,7 @@ services:
       - "16105:16105"
 
   owprov-ui:
-    image: "tip-tip-wlan-cloud-ucentral.jfrog.io/owprov-ui:${OWPROVUI_TAG}"
+    image: "ghcr.io/routerarchitects/ra-owprov-ui:${OWPROVUI_TAG}"
     networks:
       openwifi:
     env_file:
@@ -152,7 +151,7 @@ services:
       - "8443:8443"
 
   owanalytics:
-    image: "tip-tip-wlan-cloud-ucentral.jfrog.io/owanalytics:${OWANALYTICS_TAG}"
+    image: "ghcr.io/routerarchitects/ra-owanalytics:${OWANALYTICS_TAG}"
     networks:
       openwifi:
         aliases:
@@ -174,7 +173,7 @@ services:
       - "16109:16109"
 
   owsub:
-    image: "tip-tip-wlan-cloud-ucentral.jfrog.io/owsub:${OWSUB_TAG}"
+    image: "ghcr.io/routerarchitects/ra-owsub:${OWSUB_TAG}"
     networks:
       openwifi:
         aliases:
@@ -194,6 +193,25 @@ services:
     ports:
       - "16006:16006"
       - "16106:16106"
+
+  network-topology:
+    image: "ghcr.io/routerarchitects/ra-network-topology:${NT_TAG}"
+    networks:
+      openwifi:
+        aliases:
+          - ${INTERNAL_NT_HOSTNAME}
+    env_file:
+      - nwtopology.env
+    depends_on:
+      init-kafka:
+        condition: service_completed_successfully
+    volumes:
+      - "./nt_data:${NT_ROOT}/"
+      - "./certs:/app/certs/"
+      - "./nt_data/logs:/app/logs"
+    ports:
+      - "16007:8088"
+    restart: unless-stopped
 
   kafka:
     image: "docker.io/bitnamilegacy/kafka:${KAFKA_TAG}"
@@ -249,3 +267,17 @@ services:
       retries: 5
       start_period: 30s
       timeout: 10s
+
+#  kafka-ui:
+#    container_name: kafka-ui
+#    image: provectuslabs/kafka-ui:latest
+#    networks:
+#      openwifi:
+#    depends_on:
+#      - kafka
+#    ports:
+#      - 9080:8080
+#    environment:
+#      - DYNAMIC_CONFIG_ENABLED=true
+#      - KAFKA_CLUSTERS_0_NAME=openwifi
+#      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
