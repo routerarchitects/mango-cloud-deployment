@@ -14,15 +14,15 @@ This diagram shows how the full Mango Cloud stack is connected in Docker Compose
 ### Build Your Own Images
 All Mango Cloud component repositories are public. You can clone these repos, build your own Docker images, and update image references/tags in the compose files for custom deployments.
 
-- `owgw`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralgw
-- `owgw-ui`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralgw-ui
-- `owprov`: https://github.com/routerarchitects/ra-wlan-cloud-owprov
-- `owprov-ui`: https://github.com/routerarchitects/ra-wlan-cloud-owprov-ui
-- `owanalytics`: https://github.com/routerarchitects/ra-wlan-cloud-analytics
-- `owsec`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralsec
-- `owfms`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralfms
-- `owsub` (user portal): https://github.com/routerarchitects/ra-wlan-cloud-userportal
-- `network-topology`: https://github.com/routerarchitects/ra-openlan-nw-topology/tree/nt-service-align-openwifi
+- `owgw`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralgw/tree/release/v1.0.0
+- `owgw-ui`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralgw-ui/tree/release/v1.0.0
+- `owprov`: https://github.com/routerarchitects/ra-wlan-cloud-owprov/tree/release/v1.0.0
+- `owprov-ui`: https://github.com/routerarchitects/ra-wlan-cloud-owprov-ui/tree/release/v1.0.0
+- `owanalytics`: https://github.com/routerarchitects/ra-wlan-cloud-analytics/tree/release/v1.0.0
+- `owsec`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralsec/tree/release/v1.0.0
+- `owfms`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralfms/tree/release/v1.0.0
+- `owsub` (user portal): https://github.com/routerarchitects/ra-wlan-cloud-userportal/tree/release/v1.0.0
+- `network-topology`: https://github.com/routerarchitects/ra-openlan-nw-topology/tree/release/v1.0.0
 
 ---
 ## Local Setup
