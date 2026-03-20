@@ -22,7 +22,7 @@ All Mango Cloud component repositories are public. You can clone these repos, bu
 - `owsec`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralsec
 - `owfms`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralfms
 - `owsub` (user portal): https://github.com/routerarchitects/ra-wlan-cloud-userportal
-- `network-topology`: https://github.com/routerarchitects/ra-openlan-nw-topology
+- `network-topology`: https://github.com/routerarchitects/ra-openlan-nw-topology/tree/nt-service-align-openwifi
 
 ---
 ## Local Setup
