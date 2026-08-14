@@ -1,28 +1,96 @@
-# MangoCloud SDK Docker Compose
+# Mango Cloud
 
-### Overview
-With the provided Docker Compose files you can instantiate a deployment of the OpenWifi microservices and related components. The repository contains a self-signed certificate and a TIP-signed gateway certificate which are valid for the `*.wlan.local` domain. You also have the possibility to either generate and use Let's Encrypt certs or provide your own certificates.
+**Open-source OpenLAN/OpenWiFi cloud platform for managed Wi-Fi and connectivity operations.**
 
-### Mango Cloud Components
+[Mango Cloud](https://www.mangowifi.cloud/) is developed by [Router Architects](https://www.routerarchitects.com/) to help ISPs, MSPs, OEMs, and system integrators build and operate open, extensible managed-connectivity platforms.
+
+Mango Cloud provides a common cloud operations layer across OpenWiFi access points and OpenLAN connectivity infrastructure, with services for device provisioning, monitoring, firmware management, subscriber operations, topology, analytics, security, and operational workflows.
+
+> **Own the platform. Avoid closed vendor lock-in. Extend it for your own services and workflows.**
+
+## Why Mango Cloud?
+
+Mango Cloud is designed for providers that want the flexibility of open networking without having to assemble and operate disconnected components themselves.
+
+Key capabilities include:
+
+* **Device lifecycle management** — provisioning, onboarding, configuration, monitoring, firmware management, and diagnostics
+* **OpenWiFi management** — cloud management for compatible OpenWiFi access points and CPE
+* **OpenLAN integration** — an open connectivity architecture spanning Wi-Fi, switching, and gateway infrastructure
+* **Subscriber operations** — subscriber onboarding, device assignment, service lifecycle, and self-service workflows
+* **Multi-tenant operations** — operators, tenants, locations, venues, hierarchies, and role-based workflows
+* **Topology and analytics** — network topology, telemetry, operational analytics, and troubleshooting visibility
+* **Open APIs** — API-driven integrations with OSS/BSS, billing, captive portals, CRM, support systems, and provider-specific workflows
+* **Self-hosted deployment** — deploy and operate Mango Cloud using your own infrastructure and Docker Compose
+
+## Managed Connectivity Use Cases
+
+Mango Cloud can be used as the cloud operations layer for:
+
+* Residential Wi-Fi
+* MDU Wi-Fi
+* Hospitality Wi-Fi
+* Public Wi-Fi and hotspots
+* MSP-managed enterprise Wi-Fi
+* Edge IoT connectivity deployments
+## Mango Cloud Architecture
+
 ![Mango Cloud component architecture](./mango-cloud-components.drawio.png)
 
-This diagram shows how the full Mango Cloud stack is connected in Docker Compose:
-- `owgw-ui` and `owprov-ui` are user-facing web interfaces.
-- Core backend services (`owgw`, `owsec`, `owfms`, `owprov`, `owanalytics`, `owsub`, and `network-topology`) handle controller, security, firmware, provisioning, analytics, subscriber, and topology workflows.
-- `kafka` is used for inter-service messaging and `postgresql` stores persistent data.
+The Mango Cloud deployment combines OpenWiFi cloud services with Router Architects-developed platform components and operational workflows.
 
-### Build Your Own Images
-All Mango Cloud component repositories are public. You can clone these repos, build your own Docker images, and update image references/tags in the compose files for custom deployments.
+The current Docker Compose stack includes:
 
-- `owgw`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralgw/tree/release/v1.0.0
-- `owgw-ui`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralgw-ui/tree/release/v1.0.0
-- `owprov`: https://github.com/routerarchitects/ra-wlan-cloud-owprov/tree/release/v1.0.0
-- `owprov-ui`: https://github.com/routerarchitects/ra-wlan-cloud-owprov-ui/tree/release/v1.0.0
-- `owanalytics`: https://github.com/routerarchitects/ra-wlan-cloud-analytics/tree/release/v1.0.0
-- `owsec`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralsec/tree/release/v1.0.0
-- `owfms`: https://github.com/routerarchitects/ra-wlan-cloud-ucentralfms/tree/release/v1.0.0
-- `owsub` (user portal): https://github.com/routerarchitects/ra-wlan-cloud-userportal/tree/release/v1.0.0
-- `network-topology`: https://github.com/routerarchitects/ra-openlan-nw-topology/tree/release/v1.0.0
+| Component          | Role                                                              |
+| ------------------ | ----------------------------------------------------------------- |
+| `owgw`             | uCentral gateway and access-point communication                   |
+| `owgw-ui`          | Wi-Fi controller user interface                                   |
+| `owprov`           | Provisioning, inventory, subscriber, entity, and venue management |
+| `owprov-ui`        | Provisioning and operations user interface                        |
+| `owsec`            | Security and authentication services                              |
+| `owfms`            | Firmware lifecycle management                                     |
+| `owanalytics`      | Wi-Fi and network analytics                                       |
+| `owsub`            | Subscriber self-service workflows                                 |
+| `network-topology` | Network topology and connectivity visibility                      |
+| `kafka`            | Inter-service messaging                                           |
+| `postgresql`       | Persistent platform data                                          |
+
+## Open-Source Components
+
+Mango Cloud is built from public component repositories maintained under the Router Architects GitHub organization.
+
+* [uCentral Gateway — OWGW](https://github.com/routerarchitects/ra-wlan-cloud-ucentralgw)
+* [Wi-Fi Controller UI — OWGW UI](https://github.com/routerarchitects/ra-wlan-cloud-ucentralgw-ui)
+* [Provisioning Service — OWPROV](https://github.com/routerarchitects/ra-wlan-cloud-owprov)
+* [Provisioning UI — OWPROV UI](https://github.com/routerarchitects/ra-wlan-cloud-owprov-ui)
+* [Analytics Service](https://github.com/routerarchitects/ra-wlan-cloud-analytics)
+* [Security Service — OWSEC](https://github.com/routerarchitects/ra-wlan-cloud-ucentralsec)
+* [Firmware Management Service — OWFMS](https://github.com/routerarchitects/ra-wlan-cloud-ucentralfms)
+* [Subscriber Portal](https://github.com/routerarchitects/ra-wlan-cloud-userportal)
+* [Network Topology Service](https://github.com/routerarchitects/ra-openlan-nw-topology)
+
+Each component can be cloned and built independently, or the complete platform can be deployed using this repository.
+
+## Deployment
+
+This repository provides the Docker Compose configuration required to deploy the Mango Cloud stack.
+
+It includes support for:
+
+* Local development deployments
+* Remote/cloud deployments
+* Self-signed certificates for development
+* Public certificates using Let's Encrypt
+* Custom certificates
+* Building and using your own Mango Cloud component images
+
+For production deployments, review all certificate, credential, networking, and infrastructure settings before exposing the platform publicly.
+
+## Learn More
+
+* **Mango Cloud:** https://www.mangowifi.cloud/
+* **Router Architects:** https://www.routerarchitects.com/
+* **GitHub Organization:** https://github.com/routerarchitects
 
 ---
 ## Local Setup
