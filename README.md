@@ -1,4 +1,4 @@
-# Mango Cloud
+# Mango Cloud - Open-Source TIP OpenLAN/OpenWiFi Cloud Controller
 
 **Mango Cloud is an open-source OpenLAN/OpenWiFi cloud platform and cloud controller for managed Wi-Fi and connectivity operations.**
 
