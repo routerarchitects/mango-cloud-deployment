@@ -1,6 +1,6 @@
 # Mango Cloud
 
-**Open-source OpenLAN/OpenWiFi cloud platform for managed Wi-Fi and connectivity operations.**
+**Mango Cloud is an open-source OpenLAN/OpenWiFi cloud platform and cloud controller for managed Wi-Fi and connectivity operations.**
 
 [Mango Cloud](https://www.mangowifi.cloud/) is developed by [Router Architects](https://www.routerarchitects.com/) to help ISPs, MSPs, OEMs, and system integrators build and operate open, extensible managed-connectivity platforms.
 
@@ -16,12 +16,22 @@ Key capabilities include:
 
 * **Device lifecycle management** — provisioning, onboarding, configuration, monitoring, firmware management, and diagnostics
 * **OpenWiFi management** — cloud management for compatible OpenWiFi access points and CPE
-* **OpenLAN integration** — an open connectivity architecture spanning Wi-Fi, switching, and gateway infrastructure
+* **OpenLAN connectivity** — a common cloud operations layer across OpenWiFi access points(OWF), OpenLAN switches(OLS), and OpenLAN gateways(OLG).
 * **Subscriber operations** — subscriber onboarding, device assignment, service lifecycle, and self-service workflows
 * **Multi-tenant operations** — operators, tenants, locations, venues, hierarchies, and role-based workflows
 * **Topology and analytics** — network topology, telemetry, operational analytics, and troubleshooting visibility
 * **Open APIs** — API-driven integrations with OSS/BSS, billing, captive portals, CRM, support systems, and provider-specific workflows
 * **Self-hosted deployment** — deploy and operate Mango Cloud using your own infrastructure and Docker Compose
+  
+## Who Is Mango Cloud For?
+
+Mango Cloud is designed for:
+
+- ISPs building residential and MDU Wi-Fi services
+- MSPs delivering managed enterprise Wi-Fi
+- OEMs and system integrators building OpenLAN/OpenWiFi solutions
+- Connectivity providers that want an open alternative to closed cloud-managed networking platforms
+
 
 ## Managed Connectivity Use Cases
 
