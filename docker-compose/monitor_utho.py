@@ -209,6 +209,12 @@ def read_token(args):
     return os.environ.get("OWGW_MONITOR_TOKEN", "").strip()
 
 
+def read_internal_key(args):
+    if not args.internal_key_file:
+        return ""
+    return Path(args.internal_key_file).read_text(encoding="utf-8").strip()
+
+
 def diagnostics_url(args, state):
     if args.diag_url:
         return args.diag_url.replace("{container_ip}", state.get("container_ip", ""))
@@ -222,15 +228,18 @@ def diagnostics_url(args, state):
     return "https://{}:{}{}".format(ip, args.diag_port, args.diag_path)
 
 
-def get_diagnostics(url, token, args):
+def get_diagnostics(url, token, internal_key, args):
     if not url:
         return None, "disabled", None
     if "{container_ip}" in url or "://" not in url:
         return None, "invalid_diagnostic_url", None
-    if token and url.startswith("http://"):
-        return None, "refusing_bearer_token_over_http", None
+    if (token or internal_key) and not url.startswith("https://"):
+        return None, "refusing_credentials_without_https", None
     headers = {"Accept": "application/json", "User-Agent": "OWGW-memory-monitor/1.0"}
-    if token:
+    if internal_key:
+        headers["X-INTERNAL-NAME"] = args.internal_name
+        headers["X-API-KEY"] = internal_key
+    elif token:
         headers["Authorization"] = "Bearer " + token
     context = None
     if url.startswith("https://"):
@@ -317,7 +326,11 @@ def parser():
                     help="Disable HTTPS certificate verification ONLY on trusted local Docker bridge")
     ap.add_argument("--diag-ca", default=None, help="Trusted CA PEM for HTTPS")
     ap.add_argument("--token-file", default=None,
-                    help="File containing an API bearer token (never printed)")
+                    help="File containing an API bearer token (legacy; not sufficient for internal diagnostics)")
+    ap.add_argument("--internal-name", default="",
+                    help="Caller name for OWGW's internal X-INTERNAL-NAME header")
+    ap.add_argument("--internal-key-file", default="",
+                    help="Root-readable file containing OWGW internal X-API-KEY; never printed")
     ap.add_argument("--ap-field", default="",
                     help="Dotted JSON field for actual connected AP count")
     ap.add_argument("--http-timeout", type=float, default=2)
@@ -335,7 +348,15 @@ def main():
         sys.exit("Use --interval >= 5 and --minutes >= 0")
     if args.diag_insecure and args.diag_ca:
         sys.exit("Specify either --diag-ca or --diag-insecure, not both")
-    token = read_token(args)
+    if bool(args.internal_name) != bool(args.internal_key_file):
+        sys.exit("Use --internal-name and --internal-key-file together")
+    if args.internal_key_file and args.token_file:
+        sys.exit("Use internal credentials OR --token-file, not both")
+    # Internal diagnostics require the internal headers, not a Bearer token alone.
+    token = "" if args.internal_key_file else read_token(args)
+    internal_key = read_internal_key(args)
+    if args.internal_key_file and not internal_key:
+        sys.exit("Internal key file is empty")
     # Never remove, clear, or replace the shared report directory or old files.
     directory = Path(args.output_dir)
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -351,6 +372,9 @@ def main():
               "TCP ESTAB is measured separately.", flush=True)
     print("Diagnostics:", "enabled" if args.diag_path or args.diag_url else
           "disabled (specify --diag-path with the exact internal route)", flush=True)
+    print("Authentication:", "internal service credentials" if internal_key else
+          ("Bearer token (insufficient for internal-only diagnostics)" if token
+           else "none"), flush=True)
     print("Warning thresholds only ALERT; this monitor never stops OWLS/OWGW.", flush=True)
 
     state = {}
@@ -451,7 +475,7 @@ def main():
             try:
                 url = diagnostics_url(args, state)
                 if url:
-                    diagnostics, diag_status, latency = get_diagnostics(url, token, args)
+                    diagnostics, diag_status, latency = get_diagnostics(url, token, internal_key, args)
                     row["diagnostics_latency_ms"] = latency
                     row["connected_aps"] = json_path(diagnostics, args.ap_field)
                     if diagnostics is not None:
