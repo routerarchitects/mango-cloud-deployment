@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Low-overhead, read-only OWGW memory monitor. Python 3.8+, standard library only.
 
-Run on the OWGW Docker host. Outputs a CSV of host/process/cgroup readings
-and JSONL containing complete diagnostic API responses. No APs are created.
+Run on the OWGW Docker host. Reports go in load-simulator-dignotic-report/.
+Existing reports are preserved; each execution creates uniquely named files.
+Outputs a CSV of host/process/cgroup readings and JSONL containing complete
+diagnostic API responses. No APs are created.
 """
 
 import argparse
@@ -289,8 +291,9 @@ def parser():
     ap.add_argument("--fd-every", type=float, default=60)
     ap.add_argument("--tcp-every", type=float, default=60)
     ap.add_argument("--ap-port", type=int, default=15002)
-    ap.add_argument("--diag-path", default="",
-                    help="Exact enabled internal diagnostic route, beginning with /")
+    ap.add_argument("--diag-path",
+                    default="/api/v1/system?command=resources&diagnostics=memory",
+                    help="Internal memory diagnostics API path (default: resources/memory)")
     ap.add_argument("--diag-url", default="",
                     help="Alternative full URL; use {container_ip} for current Docker IP")
     ap.add_argument("--diag-port", type=int, default=17002)
@@ -305,7 +308,8 @@ def parser():
     ap.add_argument("--max-json-bytes", type=int, default=1024 * 1024)
     ap.add_argument("--warn-rss-gib", type=float, default=6)
     ap.add_argument("--warn-available-gib", type=float, default=2)
-    ap.add_argument("--output-dir", default="")
+    ap.add_argument("--output-dir", default="load-simulator-dignotic-report",
+                    help="Shared report directory; existing reports are never removed")
     return ap
 
 
@@ -313,20 +317,17 @@ def main():
     args = parser().parse_args()
     if args.interval < 5 or args.minutes < 0:
         sys.exit("Use --interval >= 5 and --minutes >= 0")
-    if args.diag_path and args.diag_url:
-        sys.exit("Specify only one of --diag-path or --diag-url")
     if args.diag_insecure and args.diag_ca:
         sys.exit("Specify either --diag-ca or --diag-insecure, not both")
     token = read_token(args)
-    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    directory = Path(args.output_dir or ("owgw-monitor-" + stamp))
+    # Never remove, clear, or replace the shared report directory or old files.
+    directory = Path(args.output_dir)
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    try:
-        os.chmod(directory, 0o700)
-    except OSError:
-        pass
-    csv_path = directory / "metrics.csv"
-    json_pathname = directory / "diagnostics.jsonl"
+    # Microseconds plus PID avoid collisions across repeated/concurrent runs.
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    run_id = "{}-{}".format(stamp, os.getpid())
+    csv_path = directory / ("metrics-" + run_id + ".csv")
+    json_pathname = directory / ("diagnostics-" + run_id + ".jsonl")
     print("Writing:", csv_path, "and", json_pathname, flush=True)
     print("--devices is a target label, not a simulation command.", flush=True)
     print("Diagnostics:", "enabled" if args.diag_path or args.diag_url else
@@ -349,8 +350,8 @@ def main():
     deadline = started + args.minutes * 60 if args.minutes else float("inf")
     fields = output_fields()
 
-    with open(csv_path, "w", newline="", encoding="utf-8", buffering=1) as csv_file, \
-            open(json_pathname, "w", encoding="utf-8", buffering=1) as json_file:
+    with open(csv_path, "x", newline="", encoding="utf-8", buffering=1) as csv_file, \
+            open(json_pathname, "x", encoding="utf-8", buffering=1) as json_file:
         writer = csv.DictWriter(csv_file, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         sample = 0
