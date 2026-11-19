@@ -285,6 +285,49 @@ def json_path(obj, path):
     return obj if isinstance(obj, (int, float, str)) else None
 
 
+def extract_memory_diagnostics(snapshot):
+    """Small scalar metrics for CSV/console. Keep full snapshot in JSONL."""
+    if not isinstance(snapshot, dict):
+        return {}
+    memory = snapshot.get("memoryDiagnostics")
+    if not isinstance(memory, dict):
+        return {}
+    connections = memory.get("connections") or {}
+    logging = memory.get("logging") or {}
+    queues = memory.get("queues") or {}
+    kafka = queues.get("kafka") or {}
+    broker = memory.get("kafka") or {}
+    heap = memory.get("glibcMallinfo2") or {}
+
+    def number(obj, key):
+        value = obj.get(key) if isinstance(obj, dict) else None
+        return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+    result = {
+        "aps_active_approx": number(connections, "activeBeforeDestructorApprox"),
+        "connections_constructed_total": number(connections, "constructedTotal"),
+        "connections_cleanup_pending_approx": number(connections, "cleanupPendingOrInProgressApprox"),
+        "logging_pending_approx": number(logging, "queuedOrInFlightApprox"),
+        "logging_pending_accounted_bytes": number(logging, "queuedOrInFlightAccountedBytesApprox"),
+        "logging_ingressed_total": number(logging, "ingressedTotal"),
+        "logging_completed_total": number(logging, "completedTotal"),
+        "logging_rejected_total": number(logging, "ingressRejectedTotal"),
+        "logging_sink_failed_total": number(logging, "sinkFailedTotal"),
+        "kafka_queue_pending": number(kafka, "retainedNotifications"),
+        "kafka_queue_accounted_bytes": number(kafka, "retainedAccountedBytes"),
+        "kafka_native_outq_sample": number(broker, "nativeOutqSample"),
+        "glibc_allocated_est_bytes": number(heap, "estimatedAllocatedViaGlibcBytes"),
+    }
+    for key, field in (
+        ("logging_pending_accounted_mib", "logging_pending_accounted_bytes"),
+        ("kafka_queue_accounted_mib", "kafka_queue_accounted_bytes"),
+        ("glibc_allocated_est_mib", "glibc_allocated_est_bytes"),
+    ):
+        if result[field] is not None:
+            result[key] = round(result[field] / MIB, 2)
+    return result
+
+
 def output_fields():
     return [
         "utc", "sample", "target_devices", "container_status", "container_pid",
@@ -297,8 +340,16 @@ def output_fields():
         "cgroup_file_mib", "cgroup_sock_mib", "cgroup_slab_mib",
         "cgroup_kernel_mib", "cgroup_shmem_mib", "cgroup_rss_mib",
         "cgroup_cache_mib", "cgroup_total_rss_mib", "fds", "fd_age_s",
-        "tcp_estab_15002", "tcp_age_s", "ap_estimate_tcp", "connected_aps", "diagnostics_status",
-        "diagnostics_latency_ms", "diagnostics_bytes"
+        "tcp_estab_15002", "tcp_age_s", "ap_estimate_tcp", "connected_aps",
+        "aps_active_approx", "connections_constructed_total",
+        "connections_cleanup_pending_approx", "logging_pending_approx",
+        "logging_pending_accounted_bytes", "logging_pending_accounted_mib",
+        "logging_ingressed_total", "logging_completed_total",
+        "logging_rejected_total", "logging_sink_failed_total",
+        "kafka_queue_pending", "kafka_queue_accounted_bytes",
+        "kafka_queue_accounted_mib", "kafka_native_outq_sample",
+        "glibc_allocated_est_bytes", "glibc_allocated_est_mib",
+        "diagnostics_status", "diagnostics_latency_ms", "diagnostics_bytes"
     ]
 
 
@@ -368,8 +419,8 @@ def main():
     print("Writing:", csv_path, "and", json_pathname, flush=True)
     print("--devices is a target label, not a simulation command.", flush=True)
     if not args.ap_field:
-        print("Exact controller AP count unavailable until --ap-field is set. "
-              "APs_est(tcp) is an approximate count of established AP-port sockets.", flush=True)
+        print("APs_active_approx comes from OWGW diagnostics; APs_est(tcp) is "
+              "the established AP-port socket estimate. Neither is an exact controller count.", flush=True)
     print("Diagnostics:", "enabled" if args.diag_path or args.diag_url else
           "disabled (specify --diag-path with the exact internal route)", flush=True)
     print("Authentication:", "internal service credentials" if internal_key else
@@ -480,13 +531,14 @@ def main():
                     row["diagnostics_latency_ms"] = latency
                     row["connected_aps"] = json_path(diagnostics, args.ap_field)
                     if diagnostics is not None:
+                        row.update(extract_memory_diagnostics(diagnostics))
                         row["diagnostics_bytes"] = len(
                             json.dumps(diagnostics, separators=(",", ":")).encode("utf-8"))
             except (ValueError, OSError) as exc:
                 diag_status = "config_error:{}".format(type(exc).__name__)
             row["diagnostics_status"] = diag_status
-            # Do not substitute a TCP socket count for the application AP count.
-            # A successful snapshot still needs --ap-field to locate its AP metric.
+            # Keep controller counts and approximate connection counts distinct.
+            # Diagnostic memory fields are read-only snapshots, not exact live state.
 
             writer.writerow(row)
             record = {"utc": row["utc"], "sample": sample,
@@ -503,10 +555,17 @@ def main():
             def fmt(x, suffix=""):
                 return ("-" if x is None else str(x) + suffix)
             print("{} host={} avail={}GiB OWGW_RSS={}MiB anon={}MiB "
-                  "cpu={}% fd={} APs_est(tcp)={} APs_exact={} diag={}".format(
+                  "cpu={}% fd={} APs_active_approx={} APs_est(tcp)={} "
+                  "APs_exact={} log_pending={} log_mib={} "
+                  "log_done={} kafka_pending={} diag={}".format(
                       row["utc"], fmt(host_ram, "%"), fmt(available),
-                      fmt(rss), fmt(anon), fmt(cpu), fmt(fds), fmt(estab),
-                      fmt(row.get("connected_aps")), diag_status),
+                      fmt(rss), fmt(anon), fmt(cpu), fmt(fds),
+                      fmt(row.get("aps_active_approx")), fmt(estab),
+                      fmt(row.get("connected_aps")),
+                      fmt(row.get("logging_pending_approx")),
+                      fmt(row.get("logging_pending_accounted_mib")),
+                      fmt(row.get("logging_completed_total")),
+                      fmt(row.get("kafka_queue_pending")), diag_status),
                   flush=True)
             if (tick - last_warn >= 60 and (
                     (rss is not None and rss >= args.warn_rss_gib * 1024) or
