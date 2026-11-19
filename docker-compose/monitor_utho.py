@@ -297,7 +297,7 @@ def output_fields():
         "cgroup_file_mib", "cgroup_sock_mib", "cgroup_slab_mib",
         "cgroup_kernel_mib", "cgroup_shmem_mib", "cgroup_rss_mib",
         "cgroup_cache_mib", "cgroup_total_rss_mib", "fds", "fd_age_s",
-        "tcp_estab_15002", "tcp_age_s", "connected_aps", "diagnostics_status",
+        "tcp_estab_15002", "tcp_age_s", "ap_estimate_tcp", "connected_aps", "diagnostics_status",
         "diagnostics_latency_ms", "diagnostics_bytes"
     ]
 
@@ -368,8 +368,8 @@ def main():
     print("Writing:", csv_path, "and", json_pathname, flush=True)
     print("--devices is a target label, not a simulation command.", flush=True)
     if not args.ap_field:
-        print("APs=- means controller AP count unavailable: no --ap-field chosen. "
-              "TCP ESTAB is measured separately.", flush=True)
+        print("Exact controller AP count unavailable until --ap-field is set. "
+              "APs_est(tcp) is an approximate count of established AP-port sockets.", flush=True)
     print("Diagnostics:", "enabled" if args.diag_path or args.diag_url else
           "disabled (specify --diag-path with the exact internal route)", flush=True)
     print("Authentication:", "internal service credentials" if internal_key else
@@ -468,6 +468,7 @@ def main():
             row["fds"] = fds
             row["fd_age_s"] = round(tick - last_fd, 1) if last_fd > 0 else None
             row["tcp_estab_15002"] = estab
+            row["ap_estimate_tcp"] = estab  # Socket-based proxy only, not controller AP count.
             row["tcp_age_s"] = round(tick - last_tcp, 1) if last_tcp > 0 else None
 
             diagnostics = None
@@ -502,7 +503,7 @@ def main():
             def fmt(x, suffix=""):
                 return ("-" if x is None else str(x) + suffix)
             print("{} host={} avail={}GiB OWGW_RSS={}MiB anon={}MiB "
-                  "cpu={}% fd={} tcp_estab={} APs={} diag={}".format(
+                  "cpu={}% fd={} APs_est(tcp)={} APs_exact={} diag={}".format(
                       row["utc"], fmt(host_ram, "%"), fmt(available),
                       fmt(rss), fmt(anon), fmt(cpu), fmt(fds), fmt(estab),
                       fmt(row.get("connected_aps")), diag_status),
