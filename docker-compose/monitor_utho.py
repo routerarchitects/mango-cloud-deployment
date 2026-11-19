@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Low-overhead, read-only OWGW memory monitor. Python 3.8+, standard library only.
 
-Run on the OWGW Docker host. Reports go in load-simulator-dignotic-report/.
+Run on the OWGW Docker host. Reports go in load-simulator-dignostic-report/.
 Existing reports are preserved; each execution creates uniquely named files.
 Outputs a CSV of host/process/cgroup readings and JSONL containing complete
 diagnostic API responses. No APs are created.
@@ -246,7 +246,22 @@ def get_diagnostics(url, token, args):
             data = json.loads(raw.decode("utf-8"))
         return data, "ok", round((time.monotonic() - started) * 1000, 1)
     except urlerror.HTTPError as exc:
-        return None, "HTTP_{}".format(exc.code), None
+        # Preserve a short server-provided reason (without logging headers
+        # or authentication secrets). The server may distinguish "disabled"
+        # from "unauthorized" using ErrorDescription.
+        reason = ""
+        try:
+            raw = exc.read(2048)
+            body = json.loads(raw.decode("utf-8"))
+            if isinstance(body, dict):
+                reason = str(body.get("ErrorDescription", ""))
+        except (OSError, ValueError, UnicodeDecodeError):
+            pass
+        reason = " ".join(reason.split())[:160]
+        status = "HTTP_{}".format(exc.code)
+        if reason:
+            status += ":" + reason
+        return None, status, round((time.monotonic() - started) * 1000, 1)
     except (urlerror.URLError, ValueError, OSError, TimeoutError, json.JSONDecodeError) as exc:
         return None, type(exc).__name__, None
 
@@ -289,7 +304,8 @@ def parser():
                     help="Seconds between snapshots (default 15)")
     ap.add_argument("--inspect-every", type=float, default=60)
     ap.add_argument("--fd-every", type=float, default=60)
-    ap.add_argument("--tcp-every", type=float, default=60)
+    ap.add_argument("--tcp-every", type=float, default=15,
+                    help="TCP connection count sampling period (default 15 seconds; use 60 at very high load)")
     ap.add_argument("--ap-port", type=int, default=15002)
     ap.add_argument("--diag-path",
                     default="/api/v1/system?command=resources&diagnostics=memory",
@@ -308,7 +324,7 @@ def parser():
     ap.add_argument("--max-json-bytes", type=int, default=1024 * 1024)
     ap.add_argument("--warn-rss-gib", type=float, default=6)
     ap.add_argument("--warn-available-gib", type=float, default=2)
-    ap.add_argument("--output-dir", default="load-simulator-dignotic-report",
+    ap.add_argument("--output-dir", default="load-simulator-dignostic-report",
                     help="Shared report directory; existing reports are never removed")
     return ap
 
@@ -330,6 +346,9 @@ def main():
     json_pathname = directory / ("diagnostics-" + run_id + ".jsonl")
     print("Writing:", csv_path, "and", json_pathname, flush=True)
     print("--devices is a target label, not a simulation command.", flush=True)
+    if not args.ap_field:
+        print("APs=- means controller AP count unavailable: no --ap-field chosen. "
+              "TCP ESTAB is measured separately.", flush=True)
     print("Diagnostics:", "enabled" if args.diag_path or args.diag_url else
           "disabled (specify --diag-path with the exact internal route)", flush=True)
     print("Warning thresholds only ALERT; this monitor never stops OWLS/OWGW.", flush=True)
@@ -441,6 +460,8 @@ def main():
             except (ValueError, OSError) as exc:
                 diag_status = "config_error:{}".format(type(exc).__name__)
             row["diagnostics_status"] = diag_status
+            # Do not substitute a TCP socket count for the application AP count.
+            # A successful snapshot still needs --ap-field to locate its AP metric.
 
             writer.writerow(row)
             record = {"utc": row["utc"], "sample": sample,
@@ -457,7 +478,7 @@ def main():
             def fmt(x, suffix=""):
                 return ("-" if x is None else str(x) + suffix)
             print("{} host={} avail={}GiB OWGW_RSS={}MiB anon={}MiB "
-                  "cpu={}% fd={} estab={} APs={} diag={}".format(
+                  "cpu={}% fd={} tcp_estab={} APs={} diag={}".format(
                       row["utc"], fmt(host_ram, "%"), fmt(available),
                       fmt(rss), fmt(anon), fmt(cpu), fmt(fds), fmt(estab),
                       fmt(row.get("connected_aps")), diag_status),
