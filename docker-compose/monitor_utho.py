@@ -328,6 +328,19 @@ def extract_memory_diagnostics(snapshot):
     return result
 
 
+def select_ap_count(row):
+    """Choose the best available count without claiming estimates are exact."""
+    for field, source in (
+        ("connected_aps", "configured_controller_field"),
+        ("aps_active_approx", "owgw_diagnostics_approx"),
+        ("ap_estimate_tcp", "tcp_established_approx"),
+    ):
+        count = row.get(field)
+        if isinstance(count, (int, float)) and not isinstance(count, bool) and count >= 0:
+            return count, source
+    return None, "unavailable"
+
+
 def output_fields():
     return [
         "utc", "sample", "target_devices", "container_status", "container_pid",
@@ -341,6 +354,7 @@ def output_fields():
         "cgroup_kernel_mib", "cgroup_shmem_mib", "cgroup_rss_mib",
         "cgroup_cache_mib", "cgroup_total_rss_mib", "fds", "fd_age_s",
         "tcp_estab_15002", "tcp_age_s", "ap_estimate_tcp", "connected_aps",
+        "ap_count", "ap_count_source",
         "aps_active_approx", "connections_constructed_total",
         "connections_cleanup_pending_approx", "logging_pending_approx",
         "logging_pending_accounted_bytes", "logging_pending_accounted_mib",
@@ -419,8 +433,8 @@ def main():
     print("Writing:", csv_path, "and", json_pathname, flush=True)
     print("--devices is a target label, not a simulation command.", flush=True)
     if not args.ap_field:
-        print("APs_active_approx comes from OWGW diagnostics; APs_est(tcp) is "
-              "the established AP-port socket estimate. Neither is an exact controller count.", flush=True)
+        print("APs=best available count: OWGW connection estimate when diagnostics works, "
+              "otherwise established AP TCP sockets. AP_source shows which.", flush=True)
     print("Diagnostics:", "enabled" if args.diag_path or args.diag_url else
           "disabled (specify --diag-path with the exact internal route)", flush=True)
     print("Authentication:", "internal service credentials" if internal_key else
@@ -537,8 +551,9 @@ def main():
             except (ValueError, OSError) as exc:
                 diag_status = "config_error:{}".format(type(exc).__name__)
             row["diagnostics_status"] = diag_status
-            # Keep controller counts and approximate connection counts distinct.
-            # Diagnostic memory fields are read-only snapshots, not exact live state.
+            # Prefer a configured exact field, otherwise OWGW internal approximate
+            # connections; fall back to measured TCP sessions during diagnostic timeouts.
+            row["ap_count"], row["ap_count_source"] = select_ap_count(row)
 
             writer.writerow(row)
             record = {"utc": row["utc"], "sample": sample,
@@ -555,13 +570,11 @@ def main():
             def fmt(x, suffix=""):
                 return ("-" if x is None else str(x) + suffix)
             print("{} host={} avail={}GiB OWGW_RSS={}MiB anon={}MiB "
-                  "cpu={}% fd={} APs_active_approx={} APs_est(tcp)={} "
-                  "APs_exact={} log_pending={} log_mib={} "
-                  "log_done={} kafka_pending={} diag={}".format(
+                  "cpu={}% fd={} APs={} AP_source={} tcp_estab={} "
+                  "log_pending={} log_mib={} log_done={} kafka_pending={} diag={}".format(
                       row["utc"], fmt(host_ram, "%"), fmt(available),
                       fmt(rss), fmt(anon), fmt(cpu), fmt(fds),
-                      fmt(row.get("aps_active_approx")), fmt(estab),
-                      fmt(row.get("connected_aps")),
+                      fmt(row.get("ap_count")), row["ap_count_source"], fmt(estab),
                       fmt(row.get("logging_pending_approx")),
                       fmt(row.get("logging_pending_accounted_mib")),
                       fmt(row.get("logging_completed_total")),
